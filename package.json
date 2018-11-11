@@ -1,0 +1,37 @@
+{
+  "name": "tre-fonts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/regular/tre-fonts.git"
+  },
+  "keywords": [],
+  "author": "Jan Bölsche <jan@lagomorph.de> (https://regular.codes/)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/regular/tre-fonts/issues"
+  },
+  "homepage": "https://github.com/regular/tre-fonts#readme",
+  "tre-init": {
+    "plugins": {
+      "tre-client": true,
+      "ssb-revisions": true
+    },
+    "make-prototypes": [
+      "index.js"
+    ]
+  },
+  "devDependencies": {
+    "ssb-revisions": "^1.0.1",
+    "tre-client": "^1.1.0"
+  },
+  "dependencies": {
+    "mutant": "^3.22.1",
+    "pretty-bytes": "^5.1.0"
+  }
+}
