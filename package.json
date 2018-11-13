@@ -27,11 +27,13 @@
     ]
   },
   "devDependencies": {
+    "module-styles": "^1.0.0",
     "ssb-revisions": "^1.0.1",
     "tre-client": "^1.1.0"
   },
   "dependencies": {
     "mutant": "^3.22.1",
-    "pretty-bytes": "^5.1.0"
+    "pretty-bytes": "^5.1.0",
+    "ssb-blob-files": "^1.1.3"
   }
 }

@@ -6,6 +6,7 @@ const computed = require('mutant/computed')
 //const List = require('tre-sortable-list')
 const setStyle = require('module-styles')('tre-fonts')
 const prettyBytes = require('pretty-bytes')
+const crypto = require('crypto')
 
 setStyle(`
   .drop-zone {
@@ -76,6 +77,47 @@ function renderCSS(kv, ctx) {
   `
 }
 
+function dataUri(file, cb) {
+  const reader = new global.FileReader()
+  reader.onload = e => cb(null, e.target.result)
+  reader.readAsDataURL(file)
+}
+
+function renderPreview(arr) {
+  const font_id = 'font-' + crypto.randomBytes(8).toString('hex')
+
+  const sources = MutantMap(arr, file => {
+    const css = Value('')
+    dataUri(file, (err, uri) => {
+      if (err) return console.error(err.message)
+      css.set(`src: url("${uri}");`)
+    })
+    return css
+  })
+  const css = computed(sources, s => {
+    return `
+      @font-face {
+        font-family: "${font_id}";
+        ${s.join('\n')}
+      }
+    `
+  })
+  return h('div.font-preview', {
+    attributes: {
+      style: `font-family: "${font_id}";`,
+    }
+  }, [
+    h('style', css),
+    [7,9,10,12,16,18,24].map( pt => {
+      return h('div', {
+        attributes: {
+          style: `font-size: ${pt}pt;`
+        }
+      }, `${pt}pt: The quick brown fox jumps over the lazy dog.`)
+    })
+  ])
+}
+
 function renderEditor(kv, ctx) {
   const content = kv.value && kv.value.content
   const sorterObv = Value(byName)
@@ -116,6 +158,7 @@ function renderEditor(kv, ctx) {
     dropZone({
       on_drop: file => files.push(file)
     }, [renderList(files)]),
+    renderPreview(files),
     h('button', 'Apply')
   ])
 }
