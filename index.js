@@ -1,22 +1,40 @@
+const crypto = require('crypto')
 const h = require('mutant/html-element')
 const Value = require('mutant/value')
 const MutantArray = require('mutant/array')
 const MutantMap = require('mutant/map')
 const computed = require('mutant/computed')
-//const List = require('tre-sortable-list')
-const setStyle = require('module-styles')('tre-fonts')
 const prettyBytes = require('pretty-bytes')
-const crypto = require('crypto')
+const blobFiles = require('ssb-blob-files')
+const setStyle = require('module-styles')('tre-fonts')
+const Str = require('tre-string')
+
+function importFiles(ssb, files, stati, cb) {
+  const n = files.length
+  if (!n) return cb(null)
+  stati.set(Array(n).map(x => Value(false)))
+  let i=0
+  const results = []
+  let err = null
+  blobFiles(files, ssb, (_err, result) => {
+    if (_err) stat.put(i, _err)
+    else stati.put(i, true)
+    if (_err) err = _err
+    results.push({_err, result})
+    if (++i == n) cb(err, results)
+  })
+}
 
 setStyle(`
   .drop-zone {
     width: min-content;
-    min-width: 300px;
+    min-width: 400px;
     height: min-content;
     min-height: 50px;
     border-radius: 20px;
     border: 8px dashed #eee;
     padding: 1em;
+    margin: 1em;
   }
   .drop-zone.drag {
     border-radius: 20px;
@@ -27,7 +45,7 @@ setStyle(`
   }
   .tre-fonts-editor .list {
     display: grid; 
-    grid-template-columns: 4em 1fr 5em 4em; 
+    grid-template-columns: 4em 3em 1fr 5em 4em; 
     width: min-content;
   }
   .tre-fonts-editor .list > * {
@@ -61,20 +79,44 @@ function dropZone(opts, children) {
         e.dataTransfer.files
       )
       console.log(files)
-      if (opts.on_drop) files.forEach(opts.on_drop)
+      if (opts.on_drop) {
+        files.forEach(opts.on_drop)
+      }
     }
   }, children)
   return el
 }
 
-function renderCSS(kv, ctx) {
-  const c = kv.value && kv.value.content
-  return `
-    @font-face {
-      font-family: ${c['font-family']};
-      src: url(${config.blobsRoot}/${c.src}) format("${c.format}");
-    }
-  `
+function RenderCSS(ssb) {
+  const blobPrefix = Value()
+  ssb.ws.getAddress((err, address) => {
+    if (err) return console.error(err)
+    address = address.replace(/^ws:\/\//, 'http://').replace(/~.*$/, '/blobs/get/')
+    blobPrefix.set(address)
+  })
+  
+  return function renderCSS(kv, ctx) {
+    const content = kv.value && kv.value.content
+    if (!content) return
+
+    const css = computed(blobPrefix, bp => {
+      const sources = content.files.map( f => {
+        return `src: url("${bp + encodeURIComponent(f.link)}");`
+      }).join('\n')
+      return `
+        @font-face {
+          font-family: "${content['font-family']}";
+          ${sources}
+        }
+      `
+    })
+
+    return h('style', {
+      attributes: {
+        "data-key": kv.key
+      }
+    }, css) 
+  }
 }
 
 function dataUri(file, cb) {
@@ -118,55 +160,89 @@ function renderPreview(arr) {
   ])
 }
 
-function renderEditor(kv, ctx) {
-  const content = kv.value && kv.value.content
-  const sorterObv = Value(byName)
-  const files = MutantArray(content.files || [])
+function RenderEditor(ssb, opts) {
+  return function renderEditor(kv, ctx) {
+    const content = kv.value && kv.value.content
+    const files = MutantArray(content.files || [])
+    const stati = MutantArray() 
+    let name = content.name || 'No Name'
 
-  function removeButton(file) {
-    return h('button', {
-      'ev-click': e => {
-        const entry = files.find( f => f.name == file.name) 
-        console.log('entry', entry)
-        if (entry) files.delete(entry)
+    renderStr = Str({
+      save: text => {
+        name = text
+        console.log('new name', text)
       }
-    }, 'remove')
-  }
-  
-  function renderItem(file) {
-    return [
-      removeButton(file),
-      h('span', file.name),
-      h('span', file.type),
-      h('span', prettyBytes(file.size))
-    ]
-  }
-
-  const renderList = function(arr) {
-    const placeholder = h('span.placeholder', 'Drag font files here')
-
-    const entries = computed(arr, a => {
-      return a.length ? h('.list', 
-        MutantMap(arr, renderItem)) :
-        placeholder
     })
-    return entries
-  }
 
-  return h('.tre-fonts-editor', [
-    h('h1', content.name),
-    dropZone({
-      on_drop: file => files.push(file)
-    }, [renderList(files)]),
-    renderPreview(files),
-    h('button', 'Apply')
-  ])
+    function removeButton(file) {
+      return h('button', {
+        'ev-click': e => {
+          const entry = files.find( f => f.name == file.name) 
+          console.log('entry', entry)
+          if (entry) files.delete(entry)
+        }
+      }, 'remove')
+    }
+    
+    function renderItem(file) {
+      const i = files.indexOf(file)
+      const status = computed(stati, s => {
+        return s[i] ? s[i] :  'TODO'
+      })
+      return [
+        removeButton(file),
+        h('span', status),
+        h('span', file.name),
+        h('span', file.type),
+        h('span', prettyBytes(file.size))
+      ]
+    }
+
+    const renderList = function(arr) {
+      const placeholder = h('span.placeholder', 'Drag font files here')
+
+      const entries = computed(arr, a => {
+        return a.length ? h('.list', 
+          MutantMap(arr, renderItem)) :
+          placeholder
+      })
+      return entries
+    }
+
+    return h('.tre-fonts-editor', [
+      h('h1', renderStr(content.name)),
+      h('p.description', `
+        Change the name above by clicking on it. Then drag font files to the box below. You can provide multiple files, but you don't have to. If you do, they all should be the same fornt in different file formats (ttf, woff, ..). You will see a preview of the font below. Click 'Apply' to save your changes.
+      `),
+      dropZone({
+        on_drop: file => files.push(file)
+      }, [renderList(files)]),
+      renderPreview(files),
+      h('button', {
+        'ev-click': e => {
+          importFiles(ssb, files(), stati, (err, results) => {
+            if (err) return console.error(err)
+            const content = {
+              type: 'font',
+              name,
+              "font-family": name,
+              files: results.map( ({result}) => result)
+            }
+            if (opts.save) opts.save(content)
+          })
+        }
+      }, 'Apply')
+    ])
+  }
 }
 
-module.exports = function(opts) {
+module.exports = function(ssb, opts) {
   opts = opts || {}
+  const renderEditor = RenderEditor(ssb, opts)
+  const renderCSS = RenderCSS(ssb, opts)
 
   return function render(kv, ctx) {
+    ctx = ctx || {}
     const content = kv.value && kv.value.content
     if (content.type !== 'font') return
 
@@ -175,12 +251,4 @@ module.exports = function(opts) {
     }
     return renderCSS(kv, ctx)
   }
-}
-
-function byName(a, b) {
-  const aname = a.name.toLowerCase()
-  const bname = b.name.toLowerCase()
-  if (aname == bname) return 0
-  if (aname < bname) return -1
-  return 1
 }
