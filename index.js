@@ -9,22 +9,6 @@ const blobFiles = require('ssb-blob-files')
 const setStyle = require('module-styles')('tre-fonts')
 const Str = require('tre-string')
 
-function importFiles(ssb, files, stati, cb) {
-  const n = files.length
-  if (!n) return cb(null)
-  stati.set(Array(n).map(x => Value(false)))
-  let i=0
-  const results = []
-  let err = null
-  blobFiles(files, ssb, (_err, result) => {
-    if (_err) stat.put(i, _err)
-    else stati.put(i, true)
-    if (_err) err = _err
-    results.push({_err, result})
-    if (++i == n) cb(err, results)
-  })
-}
-
 setStyle(`
   .drop-zone {
     width: min-content;
@@ -119,12 +103,6 @@ function RenderCSS(ssb) {
   }
 }
 
-function dataUri(file, cb) {
-  const reader = new global.FileReader()
-  reader.onload = e => cb(null, e.target.result)
-  reader.readAsDataURL(file)
-}
-
 function renderPreview(arr) {
   const font_id = 'font-' + crypto.randomBytes(8).toString('hex')
 
@@ -165,11 +143,11 @@ function RenderEditor(ssb, opts) {
     const content = kv.value && kv.value.content
     const files = MutantArray(content.files || [])
     const stati = MutantArray() 
-    let name = content.name || 'No Name'
+    const name = Value(content.name)
 
     renderStr = Str({
       save: text => {
-        name = text
+        name.set(text)
         console.log('new name', text)
       }
     })
@@ -187,7 +165,7 @@ function RenderEditor(ssb, opts) {
     function renderItem(file) {
       const i = files.indexOf(file)
       const status = computed(stati, s => {
-        return s[i] ? s[i] :  'TODO'
+        return s[i] ? s[i] :  ''
       })
       return [
         removeButton(file),
@@ -210,12 +188,15 @@ function RenderEditor(ssb, opts) {
     }
 
     return h('.tre-fonts-editor', [
-      h('h1', renderStr(content.name)),
+      h('h1', renderStr(computed(name, n => n ? n : 'No Name'))),
       h('p.description', `
         Change the name above by clicking on it. Then drag font files to the box below. You can provide multiple files, but you don't have to. If you do, they all should be the same fornt in different file formats (ttf, woff, ..). You will see a preview of the font below. Click 'Apply' to save your changes.
       `),
       dropZone({
-        on_drop: file => files.push(file)
+        on_drop: file => {
+          if (!name()) name.set(titleize(file.name))
+          files.push(file)
+        }
       }, [renderList(files)]),
       renderPreview(files),
       h('button', {
@@ -224,8 +205,8 @@ function RenderEditor(ssb, opts) {
             if (err) return console.error(err)
             const content = {
               type: 'font',
-              name,
-              "font-family": name,
+              name: name(),
+              "font-family": name(),
               files: results.map( ({result}) => result)
             }
             if (opts.save) opts.save(content)
@@ -251,4 +232,32 @@ module.exports = function(ssb, opts) {
     }
     return renderCSS(kv, ctx)
   }
+}
+
+// -- utils
+
+function titleize(filename) {
+  return filename.replace(/\.\w{3,4}$/, '').replace(/-/g, ' ')
+}
+
+function dataUri(file, cb) {
+  const reader = new global.FileReader()
+  reader.onload = e => cb(null, e.target.result)
+  reader.readAsDataURL(file)
+}
+
+function importFiles(ssb, files, stati, cb) {
+  const n = files.length
+  if (!n) return cb(null)
+  stati.set(Array(n).map(x => Value(false)))
+  let i=0
+  const results = []
+  let err = null
+  blobFiles(files, ssb, (_err, result) => {
+    if (_err) stat.put(i, _err)
+    else stati.put(i, true)
+    if (_err) err = _err
+    results.push({_err, result})
+    if (++i == n) cb(err, results)
+  })
 }

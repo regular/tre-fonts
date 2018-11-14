@@ -32,7 +32,6 @@ client( (err, ssb, config) => {
     key: 'fake-key',
     value: {
       content: {
-        name: 'Dummy Font',
         type: 'font',
         files: []
       }
@@ -55,8 +54,8 @@ client( (err, ssb, config) => {
   )
 
   pull(
-    ssb.revisions.messagesByType('font'),
-    collectMutations(fonts)
+    ssb.revisions.messagesByType('font', {live: true, sync: true}),
+    collectMutations(fonts, {sync: true})
   )
 
 })
