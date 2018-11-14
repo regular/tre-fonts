@@ -234,6 +234,23 @@ module.exports = function(ssb, opts) {
   }
 }
 
+module.exports.importFile = function importFile(ssb, file, opts, cb) {
+  opts = opts || {}
+  if (!/^font\//.test(file.type)) return cb(true)
+  const stati = MutantArray(opts.progress || Value(false))
+  importFiles(ssb, [file], stati, (err, results) => {
+    if (err) return cb(err)
+    const name = titleize(file.name)
+    const content = {
+      type: 'font',
+      name,
+      "font-family": name,
+      files: results.map( ({result}) => result)
+    }
+    return cb(null, content)
+  })
+}
+
 // -- utils
 
 function titleize(filename) {
@@ -249,7 +266,9 @@ function dataUri(file, cb) {
 function importFiles(ssb, files, stati, cb) {
   const n = files.length
   if (!n) return cb(null)
-  stati.set(Array(n).map(x => Value(false)))
+  if (stati().length !== n) {
+    stati.set(Array(n).map(x => Value(false)))
+  }
   let i=0
   const results = []
   let err = null
