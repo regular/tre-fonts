@@ -8,24 +8,19 @@ const prettyBytes = require('pretty-bytes')
 const blobFiles = require('ssb-blob-files')
 const setStyle = require('module-styles')('tre-fonts')
 const Str = require('tre-string')
+const dropzone = require('tre-dropzone')
 
 setStyle(`
-  .drop-zone {
-    width: min-content;
+  .tre-fonts-editor .tre-dropzone {
     min-width: 400px;
-    height: min-content;
     min-height: 50px;
     border-radius: 20px;
     border: 8px dashed #eee;
     padding: 1em;
     margin: 1em;
   }
-  .drop-zone.drag {
-    border-radius: 20px;
-    border: 8px dashed #777;
-  }
-  .drag * {
-    pointer-events: none;
+  .tre-fonts-editor .tre-dropzone.drag {
+    border-color: #777;
   }
   .tre-fonts-editor .list {
     display: grid; 
@@ -39,37 +34,6 @@ setStyle(`
     color: #555;
   }
 `)
-
-function dropZone(opts, children) {
-  const el = h('div.drop-zone', {
-    'ev-dragenter': e => {
-      e.target.classList.add('drag')
-      e.stopPropagation()
-    },
-    'ev-dragleave': e => {
-      e.target.classList.remove('drag')
-      e.stopPropagation()
-    },
-    'ev-dragover': e => {
-      e.dataTransfer.dropEffect = 'all'
-      e.preventDefault()
-      e.stopPropagation()
-    },
-    'ev-drop': e => {
-      e.preventDefault()
-      e.stopPropagation()
-      el.classList.remove('drag')
-      const files = [].slice.apply(
-        e.dataTransfer.files
-      )
-      console.log(files)
-      if (opts.on_drop) {
-        files.forEach(opts.on_drop)
-      }
-    }
-  }, children)
-  return el
-}
 
 function RenderCSS(ssb) {
   const blobPrefix = Value()
@@ -192,8 +156,8 @@ function RenderEditor(ssb, opts) {
       h('p.description', `
         Change the name above by clicking on it. Then drag font files to the box below. You can provide multiple files, but you don't have to. If you do, they all should be the same fornt in different file formats (ttf, woff, ..). You will see a preview of the font below. Click 'Apply' to save your changes.
       `),
-      dropZone({
-        on_drop: file => {
+      dropzone({
+        on_file_drop: file => {
           if (!name()) name.set(titleize(file.name))
           files.push(file)
         }
@@ -236,7 +200,8 @@ module.exports = function(ssb, opts) {
 
 module.exports.importFile = function importFile(ssb, file, opts, cb) {
   opts = opts || {}
-  if (!/^font\//.test(file.type)) return cb(true)
+
+  if (!/^font\//.test(file.type) && !/\.otf$/.test(file.name)) return cb(true)
   const stati = MutantArray(opts.progress || Value(false))
   importFiles(ssb, [file], stati, (err, results) => {
     if (err) return cb(err)
