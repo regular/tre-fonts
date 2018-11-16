@@ -67,6 +67,7 @@ function RenderCSS(ssb) {
   }
 }
 
+
 function renderPreview(arr) {
   const font_id = 'font-' + crypto.randomBytes(8).toString('hex')
 
@@ -191,8 +192,23 @@ module.exports = function(ssb, opts) {
     const content = kv.value && kv.value.content
     if (content.type !== 'font') return
 
+    function renderTile(kv, ctx) {
+      const content = kv.value && kv.value.content
+      return h('div', {
+        style: { 
+          'font-family': content['font-family'],
+          'font-size': '45px'
+        }
+      }, [
+        renderCSS(kv),
+        'Aa'
+      ])
+    }
+
     if (ctx.where == 'editor') {
       return renderEditor(kv, ctx)
+    } else if (ctx.where == 'tile') {
+      return renderTile(kv, ctx)
     }
     return renderCSS(kv, ctx)
   }
