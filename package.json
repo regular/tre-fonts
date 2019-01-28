@@ -16,7 +16,7 @@
     "ssb"
   ],
   "author": "Jan Bölsche <jan@lagomorph.de> (https://regular.codes/)",
-  "license": "ISC",
+  "license": "AGPL-3.0-or-later",
   "bugs": {
     "url": "https://github.com/regular/tre-fonts/issues"
   },
