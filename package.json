@@ -1,6 +1,6 @@
 {
   "name": "tre-fonts",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Font support for tre",
   "main": "main.js",
   "browser": "index.js",
