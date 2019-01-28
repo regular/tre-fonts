@@ -1,15 +1,14 @@
-const FileSource = require('tre-file-importer/file-source')
 const pull = require('pull-stream')
 
 module.exports = {
-  importFile,
+  importFiles,
   factory
 }
 
-function importFile(ssb, file, source, opts, cb) {
+function importFiles(ssb, files, opts, cb) {
   opts = opts || {}
   const prototypes = opts.prototypes || {}
-  const files = !Array.isArray(file) ? [file] : file
+  files = !Array.isArray(files) ? [files] : files
   const {onProgress} = opts
 
   pull(
@@ -21,12 +20,9 @@ function importFile(ssb, file, source, opts, cb) {
       return false
     }),
     pull.asyncMap( (file, cb) => {
-      const source = file.source ? file.source() : FileSource(file)
+      console.log('file', file)
       pull(
-        source,
-        pull.map(buffer => {
-          return Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
-        }),
+        file.source(),
         ssb.blobs.add( (err, hash) => {
           if (onProgress) onProgress(file, err)
           if (err) return cb(err)

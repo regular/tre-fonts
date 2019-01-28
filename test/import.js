@@ -1,5 +1,5 @@
 const test = require('tape')
-const {importFile} = require('../common')
+const {importFiles} = require('../common')
 const pull = require('pull-stream')
 
 const TYPE = 'font'
@@ -29,7 +29,7 @@ test('import single file', t => {
   }
   file.source = source
 
-  importFile(ssb, file, source, opts, (err, result) => {
+  importFiles(ssb, [file], opts, (err, result) => {
     t.notOk(err, 'no error')
     console.log(result)
     t.equal(result.type, TYPE, 'has correct type')
@@ -74,7 +74,7 @@ test('import multiple files', t => {
     }
   }
 
-  importFile(ssb, [file1, file2], null, opts, (err, result) => {
+  importFiles(ssb, [file1, file2], opts, (err, result) => {
     t.notOk(err, 'no error')
     console.log(result)
     t.equal(result.type, TYPE, 'has correct type')

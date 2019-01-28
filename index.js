@@ -9,7 +9,7 @@ const setStyle = require('module-styles')('tre-fonts')
 const Str = require('tre-string')
 const dropzone = require('tre-dropzone')
 const FileSource = require('tre-file-importer/file-source')
-const {importFile} = require('./common')
+const {importFiles} = require('./common')
 
 setStyle(`
   .tre-fonts-editor .tre-dropzone {
@@ -180,7 +180,11 @@ function RenderEditor(ssb, opts) {
       renderPreview(files),
       h('button', {
         'ev-click': e => {
-          importFiles(ssb, files(), stati, prototypes, (err, content) => {
+          const sourceFiles = files().map(file=>{
+            file.source = opts => FileSource(file, opts)
+            return file
+          })
+          importFonts(ssb, sourceFiles, stati, prototypes, (err, content) => {
             if (err) return console.error(err)
             if (opts.save) opts.save(content)
           })
@@ -235,13 +239,13 @@ function dataUri(file, cb) {
   reader.readAsDataURL(file)
 }
 
-function importFiles(ssb, files, stati, prototypes, cb) {
+function importFonts(ssb, files, stati, prototypes, cb) {
   const n = files.length
   if (!n) return cb(null)
   if (stati().length !== n) {
     stati.set(Array(n).map(x => Value(false)))
   }
-  importFile(ssb, files, null, {prototypes, onProgress}, cb)
+  importFiles(ssb, files, {prototypes, onProgress}, cb)
 
   function onProgress(file, err) {
     let i = files.indexOf(file)
