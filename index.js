@@ -131,6 +131,9 @@ module.exports = function(ssb, opts) {
     const name = computed(contentObs, c => c.name)
     const files = computed(contentObs, c => c.files || [])
     const stati = MutantArray() 
+    const uploadDisabled = computed(files, files =>{
+      return !files.find(f => !f.link) 
+    })
 
     function set(o) {
       contentObs.set(Object.assign({}, contentObs(), o))
@@ -168,6 +171,7 @@ module.exports = function(ssb, opts) {
 
     const renderList = function() {
       return computed(files, f => {
+        updateStati()
         if (!f.length) return h('span.placeholder', 'Drag font files here')
         return h('.list', MutantMap(files, renderItem))
       })
@@ -188,6 +192,7 @@ module.exports = function(ssb, opts) {
       }, [renderList()]),
       computed(files, files => files.length ? renderPreview(files) : []),
       h('button', {
+        disabled: uploadDisabled,
         'ev-click': e => {
           const sourceFiles = files().map(file=>{
             if (!file.link) {
@@ -203,12 +208,17 @@ module.exports = function(ssb, opts) {
       }, 'Upload')
     ])
 
+    function updateStati() {
+      const n = files.length
+      if (stati().length !== n) {
+        stati.set(files().map(f => Value(Boolean(f.link))))
+      }
+    }
+
     function importFonts(files, stati, prototypes, cb) {
       const n = files.length
       if (!n) return cb(null)
-      if (stati().length !== n) {
-        stati.set(Array(n).map(x => Value(false)))
-      }
+      updateStati()
       const newFiles = files.filter(f => !f.link)
       const oldFiles = files.filter(f => f.link)
       oldFiles.forEach(f => onProgress(f, true))
