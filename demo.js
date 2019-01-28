@@ -22,9 +22,10 @@ client( (err, ssb, config) => {
   if (err) return console.error(err)
 
   const renderFont = Fonts(ssb, {
+    prototypes: config.tre.prototypes,
     save: content => {
       console.log('new content', content)
-      ssb.publish(content)
+      //ssb.publish(content)
     }
   })
 

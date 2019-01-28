@@ -5,10 +5,11 @@ const MutantArray = require('mutant/array')
 const MutantMap = require('mutant/map')
 const computed = require('mutant/computed')
 const prettyBytes = require('pretty-bytes')
-const blobFiles = require('ssb-blob-files')
 const setStyle = require('module-styles')('tre-fonts')
 const Str = require('tre-string')
 const dropzone = require('tre-dropzone')
+const FileSource = require('tre-file-importer/file-source')
+const {importFile} = require('./common')
 
 setStyle(`
   .tre-fonts-editor .tre-dropzone {
@@ -48,7 +49,7 @@ function RenderCSS(ssb) {
     if (!content) return
 
     const css = computed(blobPrefix, bp => {
-      const sources = content.files.map( f => {
+      const sources = (content.files || []).map( f => {
         return `src: url("${bp + encodeURIComponent(f.link)}");`
       }).join('\n')
       return `
@@ -104,15 +105,26 @@ function renderPreview(arr) {
 }
 
 function RenderEditor(ssb, opts) {
+  opts = opts || {}
+  const {prototypes} = opts
+  if (!prototypes) throw new Error('need prototypes!')
+  
   return function renderEditor(kv, ctx) {
+    ctx = ctx || {}
     const content = kv.value && kv.value.content
-    const files = MutantArray(content.files || [])
+    if (!content) return
+    const contentObs = ctx.contentObs || Value(content)
+    const name = computed(contentObs, c => c.name)
+    const files = computed(contentObs, c => c.files || [])
     const stati = MutantArray() 
-    const name = Value(content.name)
+
+    function set(o) {
+      contentObs.set(Object.assign({}, contentObs(), o))
+    }
 
     renderStr = Str({
       save: text => {
-        name.set(text)
+        set({name: text})
         console.log('new name', text)
       }
     })
@@ -120,15 +132,19 @@ function RenderEditor(ssb, opts) {
     function removeButton(file) {
       return h('button', {
         'ev-click': e => {
-          const entry = files.find( f => f.name == file.name) 
+          const entry = files().find( f => f.name == file.name) 
           console.log('entry', entry)
-          if (entry) files.delete(entry)
+          if (entry) {
+            const f = files()
+            f.delete(entry)
+            set({files: f})
+          }
         }
       }, 'remove')
     }
     
     function renderItem(file) {
-      const i = files.indexOf(file)
+      const i = files().indexOf(file)
       const status = computed(stati, s => {
         return s[i] ? s[i] :  ''
       })
@@ -141,15 +157,11 @@ function RenderEditor(ssb, opts) {
       ]
     }
 
-    const renderList = function(arr) {
-      const placeholder = h('span.placeholder', 'Drag font files here')
-
-      const entries = computed(arr, a => {
-        return a.length ? h('.list', 
-          MutantMap(arr, renderItem)) :
-          placeholder
+    const renderList = function() {
+      return computed(files, f => {
+        if (!f.length) return h('span.placeholder', 'Drag font files here')
+        return h('.list', MutantMap(files, renderItem))
       })
-      return entries
     }
 
     return h('.tre-fonts-editor', [
@@ -159,21 +171,17 @@ function RenderEditor(ssb, opts) {
       `),
       dropzone({
         on_file_drop: file => {
-          if (!name()) name.set(titleize(file.name))
-          files.push(file)
+          if (!name()) set({name: titleize(file.name)})
+          const f = files()
+          f.push(file)
+          set({files: f})
         }
-      }, [renderList(files)]),
+      }, [renderList()]),
       renderPreview(files),
       h('button', {
         'ev-click': e => {
-          importFiles(ssb, files(), stati, (err, results) => {
+          importFiles(ssb, files(), stati, prototypes, (err, content) => {
             if (err) return console.error(err)
-            const content = {
-              type: 'font',
-              name: name(),
-              "font-family": name(),
-              files: results.map( ({result}) => result)
-            }
             if (opts.save) opts.save(content)
           })
         }
@@ -184,6 +192,7 @@ function RenderEditor(ssb, opts) {
 
 module.exports = function(ssb, opts) {
   opts = opts || {}
+
   const renderEditor = RenderEditor(ssb, opts)
   const renderCSS = RenderCSS(ssb, opts)
 
@@ -214,24 +223,6 @@ module.exports = function(ssb, opts) {
   }
 }
 
-module.exports.importFile = function importFile(ssb, file, opts, cb) {
-  opts = opts || {}
-
-  if (!/^font\//.test(file.type) && !/\.otf$/.test(file.name)) return cb(true)
-  const stati = MutantArray(opts.progress || Value(false))
-  importFiles(ssb, [file], stati, (err, results) => {
-    if (err) return cb(err)
-    const name = titleize(file.name)
-    const content = {
-      type: 'font',
-      name,
-      "font-family": name,
-      files: results.map( ({result}) => result)
-    }
-    return cb(null, content)
-  })
-}
-
 // -- utils
 
 function titleize(filename) {
@@ -244,20 +235,18 @@ function dataUri(file, cb) {
   reader.readAsDataURL(file)
 }
 
-function importFiles(ssb, files, stati, cb) {
+function importFiles(ssb, files, stati, prototypes, cb) {
   const n = files.length
   if (!n) return cb(null)
   if (stati().length !== n) {
     stati.set(Array(n).map(x => Value(false)))
   }
-  let i=0
-  const results = []
-  let err = null
-  blobFiles(files, ssb, (_err, result) => {
-    if (_err) stat.put(i, _err)
+  importFile(ssb, files, null, {prototypes, onProgress}, cb)
+
+  function onProgress(file, err) {
+    let i = files.indexOf(file)
+    console.log('progress', file, i, err)
+    if (err) stat.put(i, err)
     else stati.put(i, true)
-    if (_err) err = _err
-    results.push({_err, result})
-    if (++i == n) cb(err, results)
-  })
+  }
 }
