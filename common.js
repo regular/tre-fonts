@@ -20,21 +20,15 @@ function importFiles(ssb, files, opts, cb) {
       return false
     }),
     pull.asyncMap( (file, cb) => {
-      console.log('file', file)
       pull(
         file.source(),
         ssb.blobs.add( (err, hash) => {
           if (onProgress) onProgress(file, err)
           if (err) return cb(err)
           
-          // Object.assign does not work with file objects
-          const result = {
-            lastModified: file.lastModified,
-            name: file.name,
-            size: file.size,
-            type: file.type,
+          const result = Object.assign(getFileProps(file), {
             link: hash
-          }
+          })
           cb(null, result)
         })
       )
@@ -88,5 +82,17 @@ function factory(config) {
         'font-family': 'unnamed'
       }
     }
+  }
+}
+
+// -- utils
+
+function getFileProps(file) {
+  // Object.assign does not work with file objects
+  return {
+    lastModified: file.lastModified,
+    name: file.name,
+    size: file.size,
+    type: file.type,
   }
 }

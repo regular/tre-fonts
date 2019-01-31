@@ -165,7 +165,7 @@ module.exports = function(ssb, opts) {
         h('span', status),
         h('span', file.name),
         h('span', file.type),
-        h('span', prettyBytes(file.size))
+        h('span', prettyBytes(file.size || 0))
       ]
     }
 
@@ -246,6 +246,7 @@ function titleize(filename) {
 }
 
 function dataUri(file, cb) {
+  if (!file.size) return cb(new Error('empty file'))
   const reader = new global.FileReader()
   reader.onload = e => cb(null, e.target.result)
   reader.readAsDataURL(file)
