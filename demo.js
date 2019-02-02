@@ -19,21 +19,11 @@ styles()
 client( (err, ssb, config) => {
   if (err) return console.error(err)
 
-  const watchMerged = WatchMerged(ssb)
-  const primarySelection = Value()
-  const merged_kv = computed(primarySelection, kv => {
-    const c = content(kv)
-    if (!c) return
-    return watchMerged(c.revisionRoot || kv.key)
-  })
-
-  console.log('config', config)
   const importer = Importer(ssb, config)
   importer.use(require('./common'))
   
   const renderFinder = Finder(ssb, {
     importer,
-    primarySelection,
     skipFirstLevel: true,
     details: (kv, ctx) => {
       return kv && kv.meta && kv.meta["prototype-chain"] ? h('i', '(has proto)') : []
@@ -51,8 +41,6 @@ client( (err, ssb, config) => {
   })
 
   const where = Value('editor')
-  let current_kv
-  let current_where
 
   document.body.appendChild(h('.tre-stylesheets-demo', [
     makeSplitPane({horiz: true}, [
@@ -72,23 +60,23 @@ client( (err, ssb, config) => {
             h('option', 'thumbnail')
           ])
         ]),
-        computed([where, merged_kv], (where, kv) => {
-          if (
-            revisionRoot(kv) == revisionRoot(current_kv) &&
-            where == current_where
-          ) return computed.NO_CHANGE
-          current_kv = kv
-          current_where = where
+        computed([where, renderFinder.primarySelectionObs], (where, kv) => {
           if (!kv) return []
-
           if (where !== 'editor') {
             return renderFont(kv, {where})  
           }
-          const contentObs = Value(Object.assign({}, kv.value.content))
           return renderShell(kv, {
-            renderEditor: renderFont,
-            contentObs,
-            where
+            renderEditor: (kv, ctx) => {
+              return makeSplitPane({horiz: true}, [
+                makePane('70%', [
+                  renderFont(kv, Object.assign({}, ctx, {where}))
+                ]),
+                makeDivider(),
+                makePane('auto', [
+                  renderFont(kv, Object.assign({}, ctx, {where: 'thumbnail'}))
+                ])
+              ])
+            }
           })
         })
       ])
