@@ -9,7 +9,7 @@ const setStyle = require('module-styles')('tre-fonts')
 const Str = require('tre-string')
 const dropzone = require('tre-dropzone')
 const FileSource = require('tre-file-importer/file-source')
-const {importFiles} = require('./common')
+const {importFiles, factory} = require('./common')
 
 module.exports = function(ssb, opts) {
   opts = opts || {}
@@ -29,10 +29,11 @@ module.exports = function(ssb, opts) {
     const name = computed(previewObs, kv => kv.value.content.name)
     const files = computed(previewObs, kv => kv.value.content.files || [])
     const family = computed(previewObs, kv => kv.value.content['font-family'] || '')
+    const where = ctx.where || 'stage'
 
-    if (ctx.where == 'editor') {
+    if (where == 'editor') {
       return renderEditor()
-    } else if (ctx.where == 'thumbnail') {
+    } else if (['thumbnail', 'tile'].includes(where)) {
       return renderTile()
     }
     return renderStyleTag()
@@ -235,6 +236,9 @@ module.exports = function(ssb, opts) {
     return blobPrefix
   }
 }
+
+module.exports.importFiles = importFiles
+module.exports.factory = factory
 
 // -- utils
 
