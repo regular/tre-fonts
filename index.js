@@ -85,7 +85,7 @@ module.exports = function(ssb, opts) {
         contentObs.set(Object.assign({}, contentObs(), o))
       }
 
-      renderStr = Str({
+      const renderStr = Str({
         save: text => {
           set({name: text})
         }
